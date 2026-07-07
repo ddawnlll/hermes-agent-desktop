@@ -150,6 +150,8 @@ const SkillsView = lazy(async () => ({ default: (await import('./skills')).Skill
 // ── AlphaForge Mission Control views ──
 const MissionControlView = lazy(async () => ({ default: (await import('./mission-control')).MissionControlView }))
 const ControlPlaneView = lazy(async () => ({ default: (await import('./control-plane')).ControlPlaneView }))
+const KanbanView = lazy(async () => ({ default: (await import('./kanban')).KanbanView }))
+const ReportsView = lazy(async () => ({ default: (await import('./reports')).ReportsView }))
 
 // Latest cron-job sessions surfaced in the collapsed "Cron jobs" section. The
 // Cron sessions are written by a background scheduler tick (the desktop
@@ -1367,8 +1369,22 @@ export function DesktopController() {
             }
             path="control-plane"
           />
-          <Route element={null} path="kanban" />
-          <Route element={null} path="reports" />
+          <Route
+            element={
+              <Suspense fallback={null}>
+                <KanbanView />
+              </Suspense>
+            }
+            path="kanban"
+          />
+          <Route
+            element={
+              <Suspense fallback={null}>
+                <ReportsView />
+              </Suspense>
+            }
+            path="reports"
+          />
           <Route element={null} path="cron" />
           <Route element={null} path="profiles" />
           <Route element={null} path="settings" />

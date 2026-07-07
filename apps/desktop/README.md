@@ -138,4 +138,27 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\hermes\hermes-agent\venv"
 
 MIT — see [LICENSE](../../LICENSE).
 
-Built by [Nous Research](https://nousresearch.com).
+---
+
+## AlphaForge Mission Control ⚡
+
+> **Fork:** [`ddawnlll/hermes-agent-desktop`](https://github.com/ddawnlll/hermes-agent-desktop)
+> **Branch:** `af/mission-control-v1`
+
+This fork extends Hermes Desktop with an **AlphaForge orchestrator dashboard** — panels that monitor and control the autonomous alpha-discovery pipeline without touching the existing chat experience.
+
+**Panels:**
+- **Mission Control** `/mission-control` — tick summary, budget, workers, gates, live ticker
+- **Control Plane** `/control-plane` — control.yaml form, human instruction, path editor
+- **Kanban** `/kanban` — v1 stub
+- **Reports** `/reports` — v1 stub
+
+**Architecture:** Ledger reader (`src/lib/`) for typed data access + SSH remote bridge. Read-first shell over ledger files. Writes limited to `control.yaml`.
+
+```bash
+cd apps/desktop && npm run dev
+```
+
+---
+
+Built by [Nous Research](https://nousresearch.com) + [@ddawnlll](https://github.com/ddawnlll).
