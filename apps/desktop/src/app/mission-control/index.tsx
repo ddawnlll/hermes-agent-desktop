@@ -1,21 +1,22 @@
 import { PAGE_INSET_X, PAGE_MAX_W } from '@/app/layout-constants'
-import { Codicon } from '@/components/ui/codicon'
 import { cn } from '@/lib/utils'
 
 import { BudgetBar } from './budget-bar'
 import { GateFlow, type GateStats } from './gate-flow'
 import { LiveTicker, type TickerEvent } from './live-ticker'
 import { TickSummary } from './tick-summary'
-import { WorkerStatus, type WorkerInfo } from './worker-status'
+import { type WorkerInfo, WorkerStatus } from './worker-status'
 
 const EMPTY_TICK = null
 const EMPTY_WORKERS: WorkerInfo[] = []
+
 const EMPTY_GATES: GateStats = {
   T0: { pass_count: 0, fail_count: 0, last_transition: null },
   T1: { pass_count: 0, fail_count: 0, last_transition: null },
   T2: { pass_count: 0, fail_count: 0, last_transition: null },
   T3: { pass_count: 0, fail_count: 0, last_transition: null }
 }
+
 const EMPTY_EVENTS: TickerEvent[] = []
 
 export function MissionControlView() {
@@ -43,9 +44,9 @@ export function MissionControlView() {
 
         {/* Top row: tick summary + budget + workers */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <TickSummary tick={tick} loading={loading} />
-          <BudgetBar spent={0} total={25} loading={loading} />
-          <WorkerStatus workers={workers} loading={loading} />
+          <TickSummary loading={loading} tick={tick} />
+          <BudgetBar loading={loading} spent={0} total={25} />
+          <WorkerStatus loading={loading} workers={workers} />
         </div>
 
         {/* Middle: gate flow */}

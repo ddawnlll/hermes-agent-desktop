@@ -31,7 +31,7 @@ export function WorkerStatus({ workers, loading }: WorkerStatusProps) {
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="space-y-1">
+            <div className="space-y-1" key={i}>
               <div className="flex items-center gap-2">
                 <Skeleton className="size-3.5 rounded-full" />
                 <Skeleton className="h-3.5 w-24" />
@@ -43,7 +43,7 @@ export function WorkerStatus({ workers, loading }: WorkerStatusProps) {
         </div>
       ) : workers.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Codicon name="person" className="size-5" />
+          <Codicon className="size-5" name="person" />
           <span>No workers running</span>
         </div>
       ) : (
@@ -74,7 +74,7 @@ function WorkerRow({ worker }: { worker: WorkerInfo }) {
       {/* Name + status icon */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Codicon name={cfg.icon} className={cn('size-3.5', cfg.color)} />
+          <Codicon className={cn('size-3.5', cfg.color)} name={cfg.icon} />
           <span className="text-sm font-medium">{worker.name}</span>
         </div>
         <span className={cn('text-[10px] font-medium uppercase', cfg.color)}>

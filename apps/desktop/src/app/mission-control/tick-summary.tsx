@@ -1,8 +1,6 @@
-import { useStore } from '@nanostores/react'
 
 import { Codicon } from '@/components/ui/codicon'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 import { relativeTime } from '@/lib/time'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -46,7 +44,7 @@ export function TickSummary({ tick, loading }: TickSummaryProps) {
         </div>
       ) : !tick ? (
         <div className="flex flex-col items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Codicon name="broadcast" className="size-5" />
+          <Codicon className="size-5" name="broadcast" />
           <span>No tick data yet</span>
         </div>
       ) : (
@@ -93,6 +91,7 @@ export function TickSummary({ tick, loading }: TickSummaryProps) {
 function RelativeDate({ date }: { date: string }) {
   const ts = new Date(date).getTime()
   const label = Number.isFinite(ts) ? relativeTime(ts) : '—'
+
   return (
     <span className="text-xs text-muted-foreground">{label}</span>
   )
@@ -109,7 +108,7 @@ function StatCard({
 }) {
   return (
     <div className="flex flex-col items-center gap-0.5 rounded-md border border-(--ui-stroke-tertiary) bg-(--ui-editor-surface-background)/50 px-2 py-1.5">
-      <Codicon name={icon} className="size-3.5 text-muted-foreground" />
+      <Codicon className="size-3.5 text-muted-foreground" name={icon} />
       <span className="text-xs font-medium">{value}</span>
       <span className="text-[10px] text-muted-foreground">{label}</span>
     </div>

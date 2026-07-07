@@ -1,7 +1,7 @@
 import { Codicon } from '@/components/ui/codicon'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 import { relativeTime } from '@/lib/time'
+import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ export function GateFlow({ gates, loading }: GateFlowProps) {
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="space-y-1">
+            <div className="space-y-1" key={i}>
               <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-3 w-28" />
@@ -57,10 +57,12 @@ export function GateFlow({ gates, loading }: GateFlowProps) {
         <div className="flex flex-col gap-1.5">
           {GATE_ORDER.map((key, idx) => {
             const gate = gates[key as keyof GateStats] as GateInfo | undefined
-            if (!gate) return null
+
+            if (!gate) {return null}
 
             const total = gate.pass_count + gate.fail_count
             const passRate = total > 0 ? (gate.pass_count / total) * 100 : 0
+
             const lastLabel = gate.last_transition
               ? relativeTime(new Date(gate.last_transition).getTime())
               : '—'
@@ -80,11 +82,11 @@ export function GateFlow({ gates, loading }: GateFlowProps) {
 
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Codicon name="pass" className="size-3 text-green-400" />
+                      <Codicon className="size-3 text-green-400" name="pass" />
                       {gate.pass_count}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Codicon name="error" className="size-3 text-red-400" />
+                      <Codicon className="size-3 text-red-400" name="error" />
                       {gate.fail_count}
                     </span>
                     <span
@@ -105,7 +107,7 @@ export function GateFlow({ gates, loading }: GateFlowProps) {
                 {/* Arrow connector to next gate */}
                 {idx < GATE_ORDER.length - 1 && (
                   <div className="flex justify-center py-0.5">
-                    <Codicon name="arrow-down" className="size-3.5 text-muted-foreground/50" />
+                    <Codicon className="size-3.5 text-muted-foreground/50" name="arrow-down" />
                   </div>
                 )}
               </div>

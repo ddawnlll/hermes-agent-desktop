@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react'
 
 import { Codicon } from '@/components/ui/codicon'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 import { relativeTime } from '@/lib/time'
+import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ export function LiveTicker({ events, loading }: LiveTickerProps) {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-start gap-2">
+            <div className="flex items-start gap-2" key={i}>
               <Skeleton className="mt-0.5 size-3.5 shrink-0 rounded-full" />
               <div className="flex-1 space-y-1">
                 <Skeleton className="h-3 w-16" />
@@ -60,27 +60,28 @@ export function LiveTicker({ events, loading }: LiveTickerProps) {
         </div>
       ) : events.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Codicon name="radio-tower" className="size-5" />
+          <Codicon className="size-5" name="radio-tower" />
           <span>No events yet</span>
         </div>
       ) : (
         <div
-          ref={listRef}
           className="max-h-[280px] space-y-1 overflow-y-auto scroll-smooth"
+          ref={listRef}
         >
           {events.map((event) => {
             const cfg = EVENT_CONFIG[event.type]
+
             return (
               <div
-                key={event.id}
                 className={cn(
                   'flex items-start gap-2 rounded-md px-2 py-1.5 text-xs',
                   cfg.bg,
                 )}
+                key={event.id}
               >
                 <Codicon
-                  name={cfg.icon}
                   className={cn('mt-0.5 size-3.5 shrink-0', cfg.color)}
+                  name={cfg.icon}
                 />
                 <div className="min-w-0 flex-1">
                   <span className="text-[10px] font-medium text-muted-foreground">
@@ -103,6 +104,8 @@ export function LiveTicker({ events, loading }: LiveTickerProps) {
 
 function EventTimestamp({ timestamp }: { timestamp: string }) {
   const ts = new Date(timestamp).getTime()
-  if (!Number.isFinite(ts)) return <>{'—'}</>
+
+  if (!Number.isFinite(ts)) {return <>{'—'}</>}
+
   return <>{relativeTime(ts)}</>
 }
