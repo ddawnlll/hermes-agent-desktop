@@ -103,7 +103,17 @@ import { $terminalTakeover } from './right-sidebar/store'
 import { TerminalPaneChrome } from './right-sidebar/terminal/chrome'
 import { PersistentTerminal } from './right-sidebar/terminal/persistent'
 import { closeActiveTerminal } from './right-sidebar/terminal/terminals'
-import { CRON_ROUTE, NEW_CHAT_ROUTE, routeSessionId, sessionRoute, SETTINGS_ROUTE } from './routes'
+import {
+  CRON_ROUTE,
+  MISSION_CONTROL_ROUTE,
+  CONTROL_PLANE_ROUTE,
+  KANBAN_ROUTE,
+  REPORTS_ROUTE,
+  NEW_CHAT_ROUTE,
+  routeSessionId,
+  sessionRoute,
+  SETTINGS_ROUTE
+} from './routes'
 import { SessionPickerOverlay } from './session-picker-overlay'
 import { SessionSwitcher } from './session-switcher'
 import { useContextSuggestions } from './session/hooks/use-context-suggestions'
@@ -136,6 +146,10 @@ const MessagingView = lazy(async () => ({ default: (await import('./messaging'))
 const ProfilesView = lazy(async () => ({ default: (await import('./profiles')).ProfilesView }))
 const SettingsView = lazy(async () => ({ default: (await import('./settings')).SettingsView }))
 const SkillsView = lazy(async () => ({ default: (await import('./skills')).SkillsView }))
+
+// ── AlphaForge Mission Control views ──
+const MissionControlView = lazy(async () => ({ default: (await import('./mission-control')).MissionControlView }))
+const ControlPlaneView = lazy(async () => ({ default: (await import('./control-plane')).ControlPlaneView }))
 
 // Latest cron-job sessions surfaced in the collapsed "Cron jobs" section. The
 // Cron sessions are written by a background scheduler tick (the desktop
@@ -1337,6 +1351,24 @@ export function DesktopController() {
             }
             path="artifacts"
           />
+          <Route
+            element={
+              <Suspense fallback={null}>
+                <MissionControlView />
+              </Suspense>
+            }
+            path="mission-control"
+          />
+          <Route
+            element={
+              <Suspense fallback={null}>
+                <ControlPlaneView />
+              </Suspense>
+            }
+            path="control-plane"
+          />
+          <Route element={null} path="kanban" />
+          <Route element={null} path="reports" />
           <Route element={null} path="cron" />
           <Route element={null} path="profiles" />
           <Route element={null} path="settings" />

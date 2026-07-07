@@ -95,7 +95,7 @@ import {
   setCurrentCwd
 } from '@/store/session'
 
-import { type AppView, ARTIFACTS_ROUTE, MESSAGING_ROUTE, SKILLS_ROUTE } from '../../routes'
+import { type AppView, ARTIFACTS_ROUTE, CONTROL_PLANE_ROUTE, KANBAN_ROUTE, MESSAGING_ROUTE, MISSION_CONTROL_ROUTE, REPORTS_ROUTE, SKILLS_ROUTE } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
 import { countLabel } from './chrome'
@@ -144,7 +144,32 @@ const SIDEBAR_NAV: SidebarNavItem[] = [
     route: SKILLS_ROUTE
   },
   { id: 'messaging', label: '', icon: props => <Codicon name="comment" {...props} />, route: MESSAGING_ROUTE },
-  { id: 'artifacts', label: '', icon: props => <Codicon name="files" {...props} />, route: ARTIFACTS_ROUTE }
+  { id: 'artifacts', label: '', icon: props => <Codicon name="files" {...props} />, route: ARTIFACTS_ROUTE },
+  // ── AlphaForge Mission Control sidebar items ──
+  {
+    id: 'mission-control',
+    label: '',
+    icon: props => <Codicon name="symbol-event" {...props} />,
+    route: MISSION_CONTROL_ROUTE
+  },
+  {
+    id: 'control-plane',
+    label: '',
+    icon: props => <Codicon name="gear" {...props} />,
+    route: CONTROL_PLANE_ROUTE
+  },
+  {
+    id: 'kanban',
+    label: '',
+    icon: props => <Codicon name="checklist" {...props} />,
+    route: KANBAN_ROUTE
+  },
+  {
+    id: 'reports',
+    label: '',
+    icon: props => <Codicon name="note" {...props} />,
+    route: REPORTS_ROUTE
+  }
 ]
 
 // Two modes via the `compact` height variant (styles.css):

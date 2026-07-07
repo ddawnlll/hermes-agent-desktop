@@ -10,14 +10,24 @@ export const PROFILES_ROUTE = '/profiles'
 export const AGENTS_ROUTE = '/agents'
 export const STARMAP_ROUTE = '/starmap'
 
+// ── AlphaForge Mission Control routes ──────────────────────────────────
+export const MISSION_CONTROL_ROUTE = '/mission-control'
+export const CONTROL_PLANE_ROUTE = '/control-plane'
+export const KANBAN_ROUTE = '/kanban'
+export const REPORTS_ROUTE = '/reports'
+
 export type AppView =
   | 'agents'
   | 'artifacts'
   | 'chat'
   | 'command-center'
+  | 'control-plane'
   | 'cron'
+  | 'kanban'
   | 'messaging'
+  | 'mission-control'
   | 'profiles'
+  | 'reports'
   | 'settings'
   | 'skills'
   | 'starmap'
@@ -26,10 +36,14 @@ export type AppRouteId =
   | 'agents'
   | 'artifacts'
   | 'command-center'
+  | 'control-plane'
   | 'cron'
+  | 'kanban'
   | 'messaging'
+  | 'mission-control'
   | 'new'
   | 'profiles'
+  | 'reports'
   | 'settings'
   | 'skills'
   | 'starmap'
@@ -50,7 +64,12 @@ export const APP_ROUTES = [
   { id: 'cron', path: CRON_ROUTE, view: 'cron' },
   { id: 'profiles', path: PROFILES_ROUTE, view: 'profiles' },
   { id: 'agents', path: AGENTS_ROUTE, view: 'agents' },
-  { id: 'starmap', path: STARMAP_ROUTE, view: 'starmap' }
+  { id: 'starmap', path: STARMAP_ROUTE, view: 'starmap' },
+  // ── AlphaForge Mission Control routes ──
+  { id: 'mission-control', path: MISSION_CONTROL_ROUTE, view: 'mission-control' },
+  { id: 'control-plane', path: CONTROL_PLANE_ROUTE, view: 'control-plane' },
+  { id: 'kanban', path: KANBAN_ROUTE, view: 'kanban' },
+  { id: 'reports', path: REPORTS_ROUTE, view: 'reports' }
 ] as const satisfies readonly AppRoute[]
 
 const APP_VIEW_BY_PATH = new Map<string, AppView>(APP_ROUTES.map(route => [route.path, route.view]))
