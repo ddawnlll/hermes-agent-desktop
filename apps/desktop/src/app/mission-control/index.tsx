@@ -1,14 +1,31 @@
-import { useStore } from '@nanostores/react'
-import { useEffect, useState } from 'react'
-
 import { PAGE_INSET_X, PAGE_MAX_W } from '@/app/layout-constants'
 import { Codicon } from '@/components/ui/codicon'
-import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
-// ── Stub — subagent will flesh these out ────────────────────────────────
+import { BudgetBar } from './budget-bar'
+import { GateFlow, type GateStats } from './gate-flow'
+import { LiveTicker, type TickerEvent } from './live-ticker'
+import { TickSummary } from './tick-summary'
+import { WorkerStatus, type WorkerInfo } from './worker-status'
+
+const EMPTY_TICK = null
+const EMPTY_WORKERS: WorkerInfo[] = []
+const EMPTY_GATES: GateStats = {
+  T0: { pass_count: 0, fail_count: 0, last_transition: null },
+  T1: { pass_count: 0, fail_count: 0, last_transition: null },
+  T2: { pass_count: 0, fail_count: 0, last_transition: null },
+  T3: { pass_count: 0, fail_count: 0, last_transition: null }
+}
+const EMPTY_EVENTS: TickerEvent[] = []
 
 export function MissionControlView() {
+  // TODO: wire to ledger-reader store / hooks
+  const loading = true
+  const tick = EMPTY_TICK
+  const workers = EMPTY_WORKERS
+  const gates = EMPTY_GATES
+  const events = EMPTY_EVENTS
+
   return (
     <div className={cn('flex h-full flex-col overflow-y-auto', PAGE_INSET_X)}>
       <div className={cn('mx-auto flex w-full flex-col gap-6 py-6', PAGE_MAX_W)}>
@@ -19,32 +36,23 @@ export function MissionControlView() {
             <p className="mt-1 text-sm text-muted-foreground">AlphaForge orchestrator dashboard</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Codicon name="broadcast" className="size-3" />
-            <span>disconnected</span>
+            <span className="inline-block size-1.5 rounded-full bg-yellow-500" />
+            <span>waiting for ledger…</span>
           </div>
         </div>
 
-        {/* Placeholder grid — TODO: real components from subagent */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <PanelSkeleton title="Tick Summary" />
-          <PanelSkeleton title="Budget" />
-          <PanelSkeleton title="Worker Status" />
-          <PanelSkeleton title="Gate Flow" />
-          <PanelSkeleton title="Live Ticker" className="md:col-span-2 lg:col-span-2" />
+        {/* Top row: tick summary + budget + workers */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <TickSummary tick={tick} loading={loading} />
+          <BudgetBar spent={0} total={25} loading={loading} />
+          <WorkerStatus workers={workers} loading={loading} />
         </div>
-      </div>
-    </div>
-  )
-}
 
-function PanelSkeleton({ title, className }: { title: string; className?: string }) {
-  return (
-    <div className={cn('rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-editor-surface-background) p-4', className)}>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h2>
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-4 w-5/6" />
+        {/* Middle: gate flow */}
+        <GateFlow gates={gates} loading={loading} />
+
+        {/* Bottom: live ticker */}
+        <LiveTicker events={events} loading={loading} />
       </div>
     </div>
   )
