@@ -1,9 +1,9 @@
-import type { TickReport } from '../app/mission-control/tick-summary'
-import type { WorkerInfo } from '../app/mission-control/worker-status'
 import type { GateStats } from '../app/mission-control/gate-flow'
 import type { TickerEvent } from '../app/mission-control/live-ticker'
+import type { TickReport } from '../app/mission-control/tick-summary'
+import type { WorkerInfo } from '../app/mission-control/worker-status'
 
-export { type TickReport, type WorkerInfo, type GateStats, type TickerEvent }
+export { type GateStats, type TickerEvent, type TickReport, type WorkerInfo }
 
 export const SAMPLE_TICK: TickReport = {
   tick_number: 47,

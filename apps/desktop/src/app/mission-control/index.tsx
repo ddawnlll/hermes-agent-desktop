@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils'
 import { BudgetBar } from './budget-bar'
 import { GateFlow, type GateStats } from './gate-flow'
 import { LiveTicker, type TickerEvent } from './live-ticker'
-import { TickSummary, type TickReport } from './tick-summary'
-import { WorkerStatus, type WorkerInfo } from './worker-status'
+import { type TickReport, TickSummary } from './tick-summary'
+import { type WorkerInfo, WorkerStatus } from './worker-status'
 
 export interface MissionControlData {
   tick?: TickReport | null
@@ -66,9 +66,9 @@ export function MissionControlView({
 
         {/* Top row: tick summary + budget + workers */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <TickSummary tick={tick} loading={loading} />
-          <BudgetBar spent={budgetSpent} total={budgetTotal} loading={loading} />
-          <WorkerStatus workers={workers} loading={loading} />
+          <TickSummary loading={loading} tick={tick} />
+          <BudgetBar loading={loading} spent={budgetSpent} total={budgetTotal} />
+          <WorkerStatus loading={loading} workers={workers} />
         </div>
 
         {/* Middle: gate flow */}

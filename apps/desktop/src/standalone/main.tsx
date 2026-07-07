@@ -4,6 +4,7 @@
 
 // ── Mock Electron IPC bridge (as any to skip strict type checking) ──────
 function noop() {}
+
 function sub() { return noop }
 
 window.hermesDesktop = {
@@ -39,14 +40,17 @@ window.hermesDesktop = {
   terminal: { dispose: () => Promise.resolve(true), onData: sub, onExit: sub, resize: () => Promise.resolve(true), start: () => Promise.resolve({ cwd: '/', id: 'mock', shell: 'bash' }), write: () => Promise.resolve(true) },
 } as any
 
+import './../styles.css'
+
+import { StrictMode, useState } from 'react'
 // ── React app ───────────────────────────────────────────────────────────
 import { createRoot } from 'react-dom/client'
-import { StrictMode, useState } from 'react'
-import { ThemeProvider } from '../themes/context'
-import { MissionControlView, type MissionControlData } from '../app/mission-control'
+
 import { ControlPlaneView } from '../app/control-plane'
-import { SAMPLE_TICK, SAMPLE_WORKERS, SAMPLE_GATES, SAMPLE_EVENTS } from './sample-data'
-import './../styles.css'
+import { type MissionControlData, MissionControlView } from '../app/mission-control'
+import { ThemeProvider } from '../themes/context'
+
+import { SAMPLE_EVENTS, SAMPLE_GATES, SAMPLE_TICK, SAMPLE_WORKERS } from './sample-data'
 
 type View = 'mc' | 'cp'
 
@@ -116,6 +120,7 @@ function StandaloneApp() {
 }
 
 const root = document.getElementById('root')
+
 if (root) {
   createRoot(root).render(
     <StrictMode>
