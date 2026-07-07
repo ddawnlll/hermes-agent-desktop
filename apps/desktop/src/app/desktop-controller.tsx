@@ -105,10 +105,6 @@ import { PersistentTerminal } from './right-sidebar/terminal/persistent'
 import { closeActiveTerminal } from './right-sidebar/terminal/terminals'
 import {
   CRON_ROUTE,
-  MISSION_CONTROL_ROUTE,
-  CONTROL_PLANE_ROUTE,
-  KANBAN_ROUTE,
-  REPORTS_ROUTE,
   NEW_CHAT_ROUTE,
   routeSessionId,
   sessionRoute,
