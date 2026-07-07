@@ -42,6 +42,7 @@ window.hermesDesktop = {
 // ── React app ───────────────────────────────────────────────────────────
 import { createRoot } from 'react-dom/client'
 import { StrictMode, useState } from 'react'
+import { ThemeProvider } from '../themes/context'
 import { MissionControlView, type MissionControlData } from '../app/mission-control'
 import { ControlPlaneView } from '../app/control-plane'
 import { SAMPLE_TICK, SAMPLE_WORKERS, SAMPLE_GATES, SAMPLE_EVENTS } from './sample-data'
@@ -118,7 +119,9 @@ const root = document.getElementById('root')
 if (root) {
   createRoot(root).render(
     <StrictMode>
-      <StandaloneApp />
+      <ThemeProvider>
+        <StandaloneApp />
+      </ThemeProvider>
     </StrictMode>,
   )
 }
