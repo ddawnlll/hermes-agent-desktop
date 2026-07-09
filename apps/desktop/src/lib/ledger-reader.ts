@@ -3,7 +3,7 @@ import { readDesktopFileText } from '@/lib/desktop-fs'
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface ControlConfig {
-  mode: 'auto' | 'manual' | 'paused'
+  mode: 'running' | 'paused' | 'killed'
   budget_usd: number
   parallel_workers: number
   human_instruction: string
@@ -19,14 +19,14 @@ export interface GateCounts {
 }
 
 export interface OrchestratorState {
-  current_tick: number
-  total_budget_spent: number
+  tick: number
+  spend_today_usd: number
   worker_status: Record<string, WorkerStatus>
   gates: GateCounts
-  last_updated: string | null
+  last_tick_at: string | null
 }
 
-export type WorkerStatus = 'running' | 'idle' | 'failed' | 'completed'
+export type WorkerStatus = 'running' | 'idle' | 'failed' | 'completed' | 'blocked' | 'killed'
 
 export interface HypothesisDoc {
   id: string
@@ -39,7 +39,7 @@ export interface HypothesisDoc {
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-let ledgerBasePath = '~/.hermes/alphaforge'
+let ledgerBasePath = process.env.LEDGER_PATH || '~/.hermes/alphaforge'
 
 /** Set the ledger base path (e.g. for testing or custom installs). */
 export function setLedgerPath(path: string): void {
@@ -188,8 +188,8 @@ export async function readStateJson(): Promise<OrchestratorState | null> {
     const data = JSON.parse(result.text) as Record<string, unknown>
 
     return {
-      current_tick: Number(data.current_tick) || 0,
-      total_budget_spent: Number(data.total_budget_spent) || 0,
+      tick: Number(data.tick) || 0,
+      spend_today_usd: Number(data.spend_today_usd) || 0,
       worker_status: parseWorkerStatus(data.worker_status),
       gates: {
         T0: Number((data.gates as Record<string, unknown>)?.['T0']) || 0,
@@ -197,8 +197,8 @@ export async function readStateJson(): Promise<OrchestratorState | null> {
         T2: Number((data.gates as Record<string, unknown>)?.['T2']) || 0,
         T3: Number((data.gates as Record<string, unknown>)?.['T3']) || 0,
       },
-      last_updated: data.last_updated
-        ? String(data.last_updated)
+      last_tick_at: data.last_tick_at
+        ? String(data.last_tick_at)
         : null,
     }
   } catch (err: unknown) {
@@ -258,10 +258,10 @@ export async function readHypothesis(id: string): Promise<HypothesisDoc | null> 
 
 function parseMode(
   val: unknown,
-): 'auto' | 'manual' | 'paused' {
-  if (val === 'auto' || val === 'manual' || val === 'paused') {return val}
+): 'running' | 'paused' | 'killed' {
+  if (val === 'running' || val === 'paused' || val === 'killed') {return val}
 
-  return 'manual'
+  return 'running'
 }
 
 function parseWorkerStatus(
@@ -276,7 +276,9 @@ function parseWorkerStatus(
       v === 'running' ||
       v === 'idle' ||
       v === 'failed' ||
-      v === 'completed'
+      v === 'completed' ||
+      v === 'blocked' ||
+      v === 'killed'
     ) {
       out[k] = v
     }

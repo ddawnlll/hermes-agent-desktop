@@ -15,26 +15,23 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 import { HumanInstructionEditor, type InstructionEntry } from './human-instruction'
+import { readControlYaml } from '@/lib/ledger-reader'
+import { writeDesktopFileText } from '@/lib/desktop-fs'
+import { getLedgerPath } from '@/lib/ledger-reader'
 import { PathEditor } from './path-editor'
 
 type ViewState = 'loading' | 'empty' | 'error' | 'data'
 
-const MODES = ['auto', 'manual', 'paused'] as const
+const MODES = ['running', 'paused', 'killed'] as const
 type Mode = (typeof MODES)[number]
 
-const MOCK_HISTORY: InstructionEntry[] = [
-  { text: 'Focus on frontend performance improvements in the dashboard module.', timestamp: '2026-07-06 14:32', author: 'admin' },
-  { text: 'Do not modify any deployment pipeline configuration files.', timestamp: '2026-07-05 09:15', author: 'admin' }
-]
 
-const MOCK_ALLOWED = ['/home/projects/hermes-agent', '/home/projects/shared/utils']
-const MOCK_FORBIDDEN = ['/home/projects/hermes-agent/deploy', '/home/projects/hermes-agent/.env']
 
 export function ControlPlaneView() {
   const [viewState, setViewState] = useState<ViewState>('loading')
 
   // Form fields
-  const [mode, setMode] = useState<Mode>('auto')
+  const [mode, setMode] = useState<Mode>('running')
   const [budget, setBudget] = useState('25')
   const [parallelWorkers, setParallelWorkers] = useState('3')
   const [instruction, setInstruction] = useState('')
@@ -45,19 +42,31 @@ export function ControlPlaneView() {
   // Validation
   const [touched, setTouched] = useState(false)
 
-  // Simulate loading → data transition on mount
+  // Load real control.yaml on mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMode('auto')
-      setBudget('25')
-      setParallelWorkers('3')
-      setInstruction('')
-      setAllowedPaths(MOCK_ALLOWED)
-      setForbiddenPaths(MOCK_FORBIDDEN)
-      setViewState('data')
-    }, 600)
-
-    return () => clearTimeout(timer)
+    let cancelled = false
+    async function loadConfig() {
+      try {
+        const config = await readControlYaml()
+        if (cancelled) return
+        if (!config) {
+          setViewState('empty')
+          return
+        }
+        setMode(config.mode)
+        setBudget(String(config.budget_usd))
+        setParallelWorkers(String(config.parallel_workers))
+        setInstruction(config.human_instruction)
+        setAllowedPaths(config.allowed_paths)
+        setForbiddenPaths(config.forbidden_paths)
+        setViewState('data')
+      } catch (err) {
+        console.error('[ControlPlane] Failed to load config:', err)
+        if (!cancelled) setViewState('error')
+      }
+    }
+    loadConfig()
+    return () => { cancelled = true }
   }, [])
 
   // --- Derived validation ---
@@ -77,22 +86,33 @@ export function ControlPlaneView() {
   const isValid = !budgetError && !workersError && !modeError && mode !== undefined
 
   // --- Handlers ---
-  const handleSave = () => {
+  const handleSave = async () => {
     setTouched(true)
 
     if (!isValid) {return}
 
-    const payload = {
-      mode,
-      budget: budgetNum,
-      parallelWorkers: workersNum,
-      instruction,
-      allowedPaths,
-      forbiddenPaths
+    try {
+      // Build YAML content matching pack control.schema.json
+      const lines = [
+        'schema_version: 1',
+        'mode: ' + mode,
+        'budget_usd: ' + budgetNum,
+        'parallel_workers: ' + workersNum,
+        'human_instruction: "' + instruction.replace(/\/g, '\').replace(/"/g, '\"') + '"',
+        'allowed_paths: [' + allowedPaths.map(p => '"' + p + '"').join(', ') + ']',
+        'forbidden_paths: [' + forbiddenPaths.map(p => '"' + p + '"').join(', ') + ']',
+      ]
+      const yamlContent = lines.join('
+')
+      const ledgerPath = getLedgerPath()
+      const home = process.env.HOME || process.env.USERPROFILE || '~'
+      const fullPath = ledgerPath.replace(/^~/, home) + '/control.yaml'
+      await writeDesktopFileText(fullPath, yamlContent)
+      setLastSaved(new Date().toLocaleString())
+      console.log('[ControlPlaneView] Saved to', fullPath)
+    } catch (err) {
+      console.error('[ControlPlaneView] Save failed:', err)
     }
-
-    console.log('[ControlPlaneView] Save payload:', JSON.stringify(payload, null, 2))
-    setLastSaved(new Date().toLocaleString())
   }
 
   // --- Loading ---
@@ -158,7 +178,7 @@ export function ControlPlaneView() {
             </p>
             <Button
               onClick={() => {
-                setMode('auto')
+                setMode('running')
                 setBudget('25')
                 setParallelWorkers('3')
                 setViewState('data')
@@ -257,7 +277,7 @@ export function ControlPlaneView() {
             Human Instruction
           </h2>
           <HumanInstructionEditor
-            history={MOCK_HISTORY}
+            history={[]}
             instruction={instruction}
             loading={false}
             onChange={setInstruction}
