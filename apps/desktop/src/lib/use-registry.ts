@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getDefaultProject, readRegistry, type Registry, type RegistryProject } from './registry-reader'
+export type { RegistryProject } from './registry-reader'
 import { setLedgerPath } from './ledger-reader'
 
 const STORAGE_KEY = 'hermes-selected-project-id'

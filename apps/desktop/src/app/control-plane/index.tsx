@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { HumanInstructionEditor, type InstructionEntry } from './human-instruction'
 import { readControlYaml } from '@/lib/ledger-reader'
 import { writeDesktopFileText } from '@/lib/desktop-fs'
+import { buildControlYaml } from './save-handler'
 import { getLedgerPath } from '@/lib/ledger-reader'
 import { PathEditor } from './path-editor'
 
@@ -91,22 +92,11 @@ export function ControlPlaneView() {
 
     if (!isValid) {return}
 
-    try {
-      // Build YAML content matching pack control.schema.json
-      const lines = [
-        'schema_version: 1',
-        'mode: ' + mode,
-        'budget_usd: ' + budgetNum,
-        'parallel_workers: ' + workersNum,
-        'human_instruction: "' + instruction.replace(/\/g, '\').replace(/"/g, '\"') + '"',
-        'allowed_paths: [' + allowedPaths.map(p => '"' + p + '"').join(', ') + ']',
-        'forbidden_paths: [' + forbiddenPaths.map(p => '"' + p + '"').join(', ') + ']',
-      ]
-      const yamlContent = lines.join('
-')
-      const ledgerPath = getLedgerPath()
+                try {
+      const yamlContent = buildControlYaml({ mode, budgetNum, workersNum, instruction, allowedPaths, forbiddenPaths })
+      const currentLedgerPath = getLedgerPath()
       const home = process.env.HOME || process.env.USERPROFILE || '~'
-      const fullPath = ledgerPath.replace(/^~/, home) + '/control.yaml'
+      const fullPath = currentLedgerPath.replace(/^~/, home) + '/control.yaml'
       await writeDesktopFileText(fullPath, yamlContent)
       setLastSaved(new Date().toLocaleString())
       console.log('[ControlPlaneView] Saved to', fullPath)
