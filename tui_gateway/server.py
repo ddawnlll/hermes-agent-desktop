@@ -266,6 +266,37 @@ class _DropTransport:
 # patches of `_real_stdout` (used extensively in tests) still land correctly.
 _stdio_transport = StdioTransport(lambda: _real_stdout, _stdout_lock)
 
+# Idle session hibernation: release agent+worker when a live-transport session
+# has been idle for this many seconds (but never a running/pending session).
+# The session dict and history survive; the agent is rebuilt transparently.
+_HIBERNATE_IDLE_S = 60
+
+# Max concurrent agent turns across all desktop/TUI sessions. When N sessions
+# stream simultaneously, each consumes event-loop, JSON-RPC serialization, and
+# renderer bandwidth. This cap prevents the aggregate from blocking the UI.
+# Control messages (interrupt, approval, sudo, secret) bypass the limit.
+_MAX_CONCURRENT_AGENT_TURNS = 2
+
+# Track currently-running agent turn session_ids for the concurrency limit.
+_active_agent_turns: set[str] = set()
+_active_agent_turns_lock = threading.Lock()
+
+
+def _try_acquire_concurrent_turn(sid: str) -> bool:
+    """Try to claim a concurrent agent turn slot. Returns True if acquired."""
+    with _active_agent_turns_lock:
+        if len(_active_agent_turns) >= _MAX_CONCURRENT_AGENT_TURNS:
+            return False
+        _active_agent_turns.add(sid)
+        return True
+
+
+def _release_concurrent_turn(sid: str) -> None:
+    """Release a previously-claimed concurrent turn slot."""
+    with _active_agent_turns_lock:
+        _active_agent_turns.discard(sid)
+
+
 # Detached websocket sessions use a drop sink instead of stdio. Desktop embeds
 # the gateway in-process and captures stdout into logs, so stale JSON-RPC frames
 # must not fall through there while the session waits for resume or reap.
@@ -766,6 +797,31 @@ def _transport_is_dead(transport) -> bool:
     return getattr(transport, "_closed", None) is True
 
 
+def _session_is_hibernatable(sid: str, session: dict, now: float) -> bool:
+    """True when a session has a live transport but has been idle too long.
+
+    Hibernation keeps the session registered and preserves transcript, but
+    releases the heavyweight agent + slash_worker so idle desktop sessions
+    don't pile up resident memory.
+    """
+    if session.get("running") or _session_pending_kind(sid):
+        return False
+    # Lazy watch sessions are already agent-less — no point hibernating.
+    if session.get("lazy"):
+        return False
+    # Skip if already agent-less (already hibernated or never built).
+    if session.get("agent") is None and session.get("slash_worker") is None:
+        return False
+    ready = session.get("agent_ready")
+    if ready is not None and not ready.is_set():
+        return False
+    # Only hibernate sessions with a live transport (desktop WS windows).
+    if _transport_is_dead(session.get("transport")):
+        return False
+    last_active = float(session.get("last_active") or 0.0)
+    return (now - last_active) > _HIBERNATE_IDLE_S
+
+
 def _session_is_evictable(sid: str, session: dict, now: float) -> bool:
     if session.get("running") or _session_pending_kind(sid):
         return False
@@ -781,12 +837,52 @@ def _session_is_evictable(sid: str, session: dict, now: float) -> bool:
     return (now - last_active) > _SESSION_TTL_S and (now - created_at) > _SESSION_TTL_S
 
 
+def _hibernate_idle_session(sid: str, session: dict) -> None:
+    """Release agent + slash_worker for an idle session, preserving transcript.
+
+    The session dict and history survive in _sessions; the agent is rebuilt
+    transparently on next use via _sess() or prompt.submit. This is NOT
+    finalization — the session remains registered with its transport and
+    can be resumed without a DB round-trip.
+    """
+    _release_active_session_slot(session)
+    agent = session.get("agent")
+    if agent is not None:
+        try:
+            agent.close()
+        except Exception:
+            pass
+        session["agent"] = None
+    worker = session.get("slash_worker")
+    if worker is not None:
+        try:
+            worker.close()
+        except Exception:
+            pass
+        session["slash_worker"] = None
+    ready = session.get("agent_ready")
+    if ready is not None:
+        ready.clear()
+    session["agent_build_started"] = False
+    # Release from concurrent turns tracking if somehow stuck
+    with _active_agent_turns_lock:
+        _active_agent_turns.discard(sid)
+
+
 def _reap_idle_sessions() -> None:
     now = time.time()
+    victims = []
+    hibernatable = []
     with _sessions_lock:
-        victims = [sid for sid, s in _sessions.items() if _session_is_evictable(sid, s, now)]
+        for sid, s in _sessions.items():
+            if _session_is_evictable(sid, s, now):
+                victims.append(sid)
+            elif _session_is_hibernatable(sid, s, now):
+                hibernatable.append(sid)
     for sid in victims:
         _close_session_by_id(sid, end_reason="idle_timeout")
+    for sid, s in hibernatable:
+        _hibernate_idle_session(sid, s)
     _enforce_session_cap()
 
 
@@ -4937,6 +5033,10 @@ def _drain_queued_prompt(rid, sid: str, session: dict) -> bool:
         if not queued or session.get("running"):
             return False
         session["queued_prompt"] = None
+        if not _try_acquire_concurrent_turn(sid):
+            # Re-queue — concurrent slot busy, try again later.
+            session["queued_prompt"] = queued
+            return False
         session["running"] = True
         if queued.get("transport") is not None:
             session["transport"] = queued["transport"]
@@ -4948,6 +5048,7 @@ def _drain_queued_prompt(rid, sid: str, session: dict) -> bool:
             f"{type(exc).__name__}: {exc}",
             file=sys.stderr,
         )
+        _release_concurrent_turn(sid)
         with session["history_lock"]:
             session["running"] = False
     return True
@@ -5079,7 +5180,6 @@ def _(rid, params: dict) -> dict:
     # + skeleton panel, then build the real AIAgent just after this response is
     # flushed.  This keeps startup responsive while still hydrating tools/skills
     # without requiring the user to submit a first prompt.
-    _schedule_agent_build(sid)
     _schedule_session_cap_enforcement()  # trim detached idle sessions over the cap
 
     return _ok(
@@ -5556,7 +5656,6 @@ def _(rid, params: dict) -> dict:
         if (live := _claim_or_reuse_live(sid, target, record, lease)) is not None:
             return _ok(rid, _reuse_live_payload(*live))
 
-        _schedule_agent_build(sid)
         _schedule_session_cap_enforcement()  # trim detached idle sessions over the cap
 
         messages = _history_to_messages(display_history)
@@ -8253,6 +8352,11 @@ def _(rid, params: dict) -> dict:
                     db.replace_messages(session["session_key"], truncated)
                 except Exception as exc:
                     print(f"[tui_gateway] prompt.submit: replace_messages failed: {exc}", file=sys.stderr)
+        # Concurrent-turn guard: limit simultaneous agent runs so N
+        # background streams don't starve the event loop. Control
+        # messages (interrupt, approval, sudo, secret) bypass this check.
+        if not _try_acquire_concurrent_turn(sid):
+            return _err(rid, 429, f"Too many concurrent agent turns ({_MAX_CONCURRENT_AGENT_TURNS}). Wait for another session to finish or stop it first.")
         session["running"] = True
         session["_turn_cancel_requested"] = False
         session["last_active"] = time.time()
@@ -8277,12 +8381,16 @@ def _(rid, params: dict) -> dict:
                     )
                 },
             )
+            with _active_agent_turns_lock:
+                _active_agent_turns.discard(sid)
             with session["history_lock"]:
                 session["running"] = False
                 _clear_inflight_turn(session)
             return
         with session["history_lock"]:
             if session.get("_turn_cancel_requested") or not session.get("running"):
+                with _active_agent_turns_lock:
+                    _active_agent_turns.discard(sid)
                 session["running"] = False
                 _clear_inflight_turn(session)
                 return
@@ -8676,7 +8784,14 @@ def _run_prompt_submit(rid, sid: str, session: dict, text: Any) -> None:
                 with session["history_lock"]:
                     _append_inflight_delta(session, delta)
                 payload = {"text": delta}
-                if streamer and (r := streamer.feed(delta)) is not None:
+                # WS/Desktop transport only uses payload.text for per-token
+                # deltas; StreamingRenderer.feed() is expensive and the
+                # ``rendered`` field is only consumed by the Ink TUI. Skip
+                # per-token rendering for WS-connected sessions to save CPU.
+                _stream_skip_render = hasattr(
+                    session.get("transport"), "_is_streaming_frame"
+                )
+                if streamer and not _stream_skip_render and (r := streamer.feed(delta)) is not None:
                     payload["rendered"] = r
                 _emit("message.delta", sid, payload)
 
@@ -8956,6 +9071,8 @@ def _run_prompt_submit(rid, sid: str, session: dict, text: Any) -> None:
             if home_token is not None:
                 reset_hermes_home_override(home_token)
             _clear_session_context(session_tokens)
+            with _active_agent_turns_lock:
+                _active_agent_turns.discard(sid)
             with session["history_lock"]:
                 session["running"] = False
                 session["last_active"] = time.time()
@@ -8980,6 +9097,10 @@ def _run_prompt_submit(rid, sid: str, session: dict, text: Any) -> None:
                     # User already sent something — their turn wins,
                     # the judge will re-run on the next turn anyway.
                     return
+                if not _try_acquire_concurrent_turn(sid):
+                    # Concurrent slot busy — skip this follow-up;
+                    # the judge will re-run on the next turn.
+                    return
                 session["running"] = True
             try:
                 _emit("message.start", sid)
@@ -8990,6 +9111,7 @@ def _run_prompt_submit(rid, sid: str, session: dict, text: Any) -> None:
                     f"{type(_cont_exc).__name__}: {_cont_exc}",
                     file=sys.stderr,
                 )
+                _release_concurrent_turn(sid)
                 with session["history_lock"]:
                     session["running"] = False
 
@@ -9004,6 +9126,9 @@ def _run_prompt_submit(rid, sid: str, session: dict, text: Any) -> None:
                     if session.get("running"):
                         process_registry.completion_queue.put(_evt)
                         break
+                    if not _try_acquire_concurrent_turn(sid):
+                        process_registry.completion_queue.put(_evt)
+                        break
                     session["running"] = True
                 try:
                     _emit("message.start", sid)
@@ -9014,6 +9139,7 @@ def _run_prompt_submit(rid, sid: str, session: dict, text: Any) -> None:
                         f"{type(_n_exc).__name__}: {_n_exc}",
                         file=sys.stderr,
                     )
+                    _release_concurrent_turn(sid)
                     with session["history_lock"]:
                         session["running"] = False
         except Exception as _drain_exc:

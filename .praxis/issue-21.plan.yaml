@@ -1,0 +1,241 @@
+planSpecVersion: 0.1.0
+kind: ImplementationPlan
+profile: praxis-v0.1
+metadata:
+  planId: HERMES-21
+  title: 'perf(desktop): prevent multi-session gateway runtimes and stream traffic
+    from blocking UI'
+  description: Prevent multi-session gateway runtimes and stream traffic from blocking
+    UI.
+  createdAt: '2026-07-10T17:30:00Z'
+  humanId: hermes-agent
+  status: draft
+authority:
+  executor: OtherAgent
+  completionAuthority: PraxisTruthKernel
+  agentSelfReportIsClaimOnly: true
+  criteriaSourceRequired: human
+  reportsAreEvidenceOnly: true
+  pluginOwnsTruth: false
+workspace:
+  root: .
+  allowedFiles:
+  - tui_gateway/server.py
+  forbiddenFiles: []
+execution:
+  mode: single_session
+  agent: claude-code
+  autonomy: implementation_allowed
+  canModifyCode: true
+  canModifyPlan: false
+  canModifyAcceptanceCriteria: false
+  maxRepairLoops: 2
+tasks:
+- id: task-perf-fix
+  title: 'Multi-session perf: lazy lifecycle, hibernation, concurrency limit, backpressure,
+    skip render'
+  objective: Fix 5 performance issues causing UI blocking under multi-session gateway
+    load.
+  implementation:
+    instructions:
+    - Remove _schedule_agent_build(sid) from session.create handler
+    - Remove _schedule_agent_build(sid) from session.resume cold path
+    - Add HIBERNATE_IDLE_S=60 constant and _hibernate_idle_session() that closes agent+worker
+      but preserves session dict
+    - Modify _reap_idle_sessions to hibernate idle live-transport sessions
+    - Add MAX_CONCURRENT_AGENT_TURNS=2 and _active_agent_turns set with _try_acquire_concurrent_turn()
+      helper
+    - Add concurrent turn guard in prompt.submit, _drain_queued_prompt, goal-followup,
+      and notification drain paths
+    - Skip StreamingRenderer.feed() for WSTransport sessions in _stream callback —
+      WS only uses payload.text
+    - All error paths properly release concurrent turn slots
+    antiPatterns:
+    - Do not break running/streaming sessions with hibernation
+    - Do not block stop/interrupt/approval control messages with concurrency limit
+    - Do not lose transcript history during hibernate/rebuild cycle
+    - Do not remove final rendering for any transport
+  artifactPolicy:
+    class: library_code
+    wiringRequired: true
+    reachabilityRequired: false
+    executionRequired: false
+    deterministicEvidenceRequired: true
+  integrationContract:
+    mode: none
+    reason: Self-contained server.py changes, no new entrypoints or exports
+    entrypoints:
+    - id: ep-prompt-submit
+      path: C:/Users/dresden/Documents/hermes-desktop-patch/tui_gateway/server.py
+      kind: method_handler
+      requiredReachabilityFrom:
+      - '@method("prompt.submit")'
+  acceptanceCriteria:
+  - id: AC-LAZY
+    description: session.create and session.resume cold path no longer call _schedule_agent_build
+    level: required
+    humanApproved: true
+    criteriaSource: human
+    verification:
+      type: file_contains
+      path: C:/Users/dresden/Documents/hermes-desktop-patch/tui_gateway/server.py
+      patterns:
+      - session.create
+      deterministic: true
+      canSatisfyFinalGate: true
+      advisoryOnly: false
+      evidenceRefs: []
+    requiredEvidence:
+    - diff
+    - source
+  - id: AC-HIB
+    description: HIBERNATE_IDLE_S constant and _hibernate_idle_session function defined
+    level: required
+    humanApproved: true
+    criteriaSource: human
+    verification:
+      type: file_contains
+      path: C:/Users/dresden/Documents/hermes-desktop-patch/tui_gateway/server.py
+      patterns:
+      - _HIBERNATE_IDLE_S
+      - _hibernate_idle_session
+      deterministic: true
+      canSatisfyFinalGate: true
+      advisoryOnly: false
+      evidenceRefs: []
+    requiredEvidence:
+    - diff
+    - source
+  - id: AC-CONC
+    description: MAX_CONCURRENT_AGENT_TURNS and _active_agent_turns concurrency tracking
+      defined
+    level: required
+    humanApproved: true
+    criteriaSource: human
+    verification:
+      type: file_contains
+      path: C:/Users/dresden/Documents/hermes-desktop-patch/tui_gateway/server.py
+      patterns:
+      - _MAX_CONCURRENT_AGENT_TURNS
+      - _active_agent_turns
+      - _try_acquire_concurrent_turn
+      deterministic: true
+      canSatisfyFinalGate: true
+      advisoryOnly: false
+      evidenceRefs: []
+    requiredEvidence:
+    - diff
+    - source
+  - id: AC-RENDER
+    description: WS transport skips per-token StreamingRenderer.feed(); final rendering
+      preserved
+    level: required
+    humanApproved: true
+    criteriaSource: human
+    verification:
+      type: file_contains
+      path: C:/Users/dresden/Documents/hermes-desktop-patch/tui_gateway/server.py
+      patterns:
+      - _stream_skip_render
+      deterministic: true
+      canSatisfyFinalGate: true
+      advisoryOnly: false
+      evidenceRefs: []
+    requiredEvidence:
+    - diff
+    - source
+  - id: AC-TSC
+    description: TypeScript build passes with zero errors
+    level: required
+    humanApproved: true
+    criteriaSource: human
+    verification:
+      type: command_output
+      commandRef: CMD-TSC
+      deterministic: true
+      canSatisfyFinalGate: true
+      advisoryOnly: false
+      evidenceRefs: []
+    requiredEvidence:
+    - command
+    - test_output
+commands:
+  exactAllowedCommands:
+  - id: CMD-TSC
+    kind: final_validation
+    command: cd C:/Users/dresden/Documents/hermes-desktop-patch/apps/desktop && npx
+      tsc --noEmit && echo 'TSC OK'
+    evidenceRequired: true
+    timeoutSeconds: 120
+    noTestsFoundIsFailure: false
+    expectedExitCode: 0
+    networkAllowed: false
+    shellAllowed: true
+  validationEvidenceRules:
+    finalPromotionRequiresExactAllowedCommand: true
+    discoveryCommandsMayNotSatisfyFinalValidation: true
+    runtimeGrantCommandsCanSatisfyValidationOnlyIfGrantStatesValidationPurpose: false
+  hardDeniedCommands:
+  - command: rm -rf
+    reason: Destructive operation
+evidence:
+  ledgerRequired: true
+  requiredEvidenceTypes:
+  - diff
+  - source
+  - command
+  - test_output
+  hashWhenAvailable: true
+gates:
+  sequence:
+  - SchemaGate
+  - LockGate
+  - EvidenceGate
+  - WiringGate
+  - ExecGate
+  - FinalGate
+  verdicts:
+  - PASS
+  - HOLD
+  - FAIL
+  reasonCodes:
+    SchemaGate:
+    - SCHEMA_PASS
+    - PLAN_SCHEMA_INVALID
+    EvidenceGate:
+    - EVIDENCE_PASS
+    - EVIDENCE_MISSING
+    WiringGate:
+    - WIRING_PASS
+    - WIRING_FAILED
+    ExecGate:
+    - EXEC_PASS
+    - EXEC_FAILED
+    FinalGate:
+    - FINAL_PASS
+    - FINAL_FAILED
+repair:
+  enabled: true
+  failedCriteriaOnly: true
+  mayModifyAcceptanceCriteria: false
+  mayModifyPlan: false
+  allowedFilesFromFailedTasksOnly: true
+  maxRepairLoops: 2
+  reverifyCommand: praxis verify --plan .praxis/issue-21.plan.yaml
+  repairPacketFormat:
+    json: true
+    markdown: true
+locking:
+  lockRequired: true
+  canonicalHashRequired: true
+  planLockFile: .praxis/issue-21.lock
+  hashes:
+  - planHash
+  - acceptanceCriteriaHash
+reports:
+  protocol: ACCP
+  artifactDirectory: reports/
+  reportsAreEvidenceOnly: true
+  reportsDoNotAuthorizeExecution: true
+  commandEvidenceRequired: true
+  repairPacketRequiredOnHoldOrFail: true
